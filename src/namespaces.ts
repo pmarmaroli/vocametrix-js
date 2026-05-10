@@ -14,6 +14,21 @@ import {
   SseEvent,
 } from "./_http.js";
 import { VocametrixServerError } from "./exceptions.js";
+import type {
+  GetCalculateAvqiResponses,
+  GetCalculateDsiResponses,
+  GetCalculateCppResponses,
+  GetCalculateHnrMultibandResponses,
+  GetJitterShimmerResponses,
+  GetCalculateAmbitusResponses,
+  PostPronunciationAssessmentResponses,
+  PostTextToSpeechResponses,
+  PostAnalyzePhonemesLiveResponses,
+  GetTherapyResultBySessionIdResponses,
+  GetCalculateProsodySimilarityResponses,
+  GetGemapsExtractResponses,
+  PostSoundLevelResponses,
+} from "./_generated/types.gen.js";
 
 export interface TranscriptionEvent {
   status: string;
@@ -22,6 +37,10 @@ export interface TranscriptionEvent {
   isTerminalSuccess: boolean;
   isTerminalFailure: boolean;
   raw: SseEvent;
+}
+
+function asJson<T>(resp: { json(): Promise<unknown> }): Promise<T> {
+  return resp.json() as Promise<T>;
 }
 
 function makeTranscriptionEvent(payload: SseEvent): TranscriptionEvent {
@@ -45,7 +64,7 @@ export class AvqiNamespace {
   async calculate(
     sustainedVowel: AudioInput,
     connectedSpeech?: AudioInput,
-  ): Promise<unknown> {
+  ): Promise<GetCalculateAvqiResponses[200]> {
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
     const params = new URLSearchParams({ svFileId: svId });
     if (connectedSpeech !== undefined) {
@@ -55,7 +74,7 @@ export class AvqiNamespace {
     const resp = await fetchWithRetry(`${this.baseUrl}/api/calculate-avqi?${params.toString()}`, {
       headers: this.authHeaders,
     });
-    return resp.json();
+    return asJson<GetCalculateAvqiResponses[200]>(resp);
   }
 }
 
@@ -66,13 +85,13 @@ export class DsiNamespace {
     private readonly email: string,
   ) {}
 
-  async calculate(sustainedVowel: AudioInput): Promise<unknown> {
+  async calculate(sustainedVowel: AudioInput): Promise<GetCalculateDsiResponses[200]> {
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/calculate-dsi?svFileId=${svId}`,
       { headers: this.authHeaders },
     );
-    return resp.json();
+    return asJson<GetCalculateDsiResponses[200]>(resp);
   }
 }
 
@@ -83,13 +102,13 @@ export class CppNamespace {
     private readonly email: string,
   ) {}
 
-  async calculate(sustainedVowel: AudioInput): Promise<unknown> {
+  async calculate(sustainedVowel: AudioInput): Promise<GetCalculateCppResponses[200]> {
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/calculate-cpp?svFileId=${svId}`,
       { headers: this.authHeaders },
     );
-    return resp.json();
+    return asJson<GetCalculateCppResponses[200]>(resp);
   }
 }
 
@@ -103,13 +122,13 @@ export class HnrNamespace {
   async calculate(
     sustainedVowel: AudioInput,
     gender: 1 | 2 = 1,
-  ): Promise<unknown> {
+  ): Promise<GetCalculateHnrMultibandResponses[200]> {
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/calculate-hnr-multiband?svFileId=${svId}&gender=${String(gender)}`,
       { headers: this.authHeaders },
     );
-    return resp.json();
+    return asJson<GetCalculateHnrMultibandResponses[200]>(resp);
   }
 }
 
@@ -120,13 +139,13 @@ export class JitterShimmerNamespace {
     private readonly email: string,
   ) {}
 
-  async calculate(sustainedVowel: AudioInput): Promise<unknown> {
+  async calculate(sustainedVowel: AudioInput): Promise<GetJitterShimmerResponses[200]> {
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/jitter-shimmer?svFileId=${svId}`,
       { headers: this.authHeaders },
     );
-    return resp.json();
+    return asJson<GetJitterShimmerResponses[200]>(resp);
   }
 }
 
@@ -141,13 +160,13 @@ export class VrpNamespace {
     sustainedVowel: AudioInput,
     age = 30,
     gender: 1 | 2 = 1,
-  ): Promise<unknown> {
+  ): Promise<GetCalculateAmbitusResponses[200]> {
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/calculate-ambitus?svFileId=${svId}&age=${String(age)}&gender=${String(gender)}`,
       { headers: this.authHeaders },
     );
-    return resp.json();
+    return asJson<GetCalculateAmbitusResponses[200]>(resp);
   }
 }
 
@@ -161,14 +180,14 @@ export class PronunciationNamespace {
     audio: AudioInput,
     referenceText: string,
     locale = "en-US",
-  ): Promise<unknown> {
+  ): Promise<PostPronunciationAssessmentResponses[200]> {
     const blobURL = await uploadBlobUrl(this.baseUrl, this.authHeaders, audio);
     const resp = await fetchWithRetry(`${this.baseUrl}/api/pronunciation-assessment`, {
       method: "POST",
       headers: { ...this.authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({ blobURL, referenceText, locale }),
     });
-    return resp.json();
+    return asJson<PostPronunciationAssessmentResponses[200]>(resp);
   }
 }
 
@@ -207,7 +226,7 @@ export class TtsNamespace {
     text: string,
     locale = "en-US",
     voiceName?: string,
-  ): Promise<unknown> {
+  ): Promise<PostTextToSpeechResponses[200]> {
     const body: Record<string, string> = { text, locale };
     if (voiceName) body["voiceName"] = voiceName;
     const resp = await fetchWithRetry(`${this.baseUrl}/api/text-to-speech`, {
@@ -215,7 +234,7 @@ export class TtsNamespace {
       headers: { ...this.authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    return resp.json();
+    return asJson<PostTextToSpeechResponses[200]>(resp);
   }
 }
 
@@ -229,14 +248,14 @@ export class PhonemeNamespace {
   async detect(
     audio: AudioInput,
     language = "fr",
-  ): Promise<unknown> {
+  ): Promise<PostAnalyzePhonemesLiveResponses[200]> {
     const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, this.email);
     const resp = await fetchWithRetry(`${this.baseUrl}/api/classify-phoneme`, {
       method: "POST",
       headers: { ...this.authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({ fileId, language }),
     });
-    return resp.json();
+    return asJson<PostAnalyzePhonemesLiveResponses[200]>(resp);
   }
 }
 
@@ -251,7 +270,7 @@ export class StutteringNamespace {
     audio: AudioInput,
     pollIntervalMs = 5000,
     timeoutMs = 620_000,
-  ): Promise<unknown> {
+  ): Promise<GetTherapyResultBySessionIdResponses[200]> {
     const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, this.email);
     const startResp = await fetchWithRetry(`${this.baseUrl}/api/classify-stuttering`, {
       method: "POST",
@@ -279,7 +298,7 @@ export class StutteringNamespace {
       `${this.baseUrl}/api/therapy-result/${sessionId}`,
       { headers: this.authHeaders },
     );
-    return resultResp.json();
+    return asJson<GetTherapyResultBySessionIdResponses[200]>(resultResp);
   }
 }
 
@@ -293,14 +312,14 @@ export class ProsodyNamespace {
   async similarity(
     model: AudioInput,
     learner: AudioInput,
-  ): Promise<unknown> {
+  ): Promise<GetCalculateProsodySimilarityResponses[200]> {
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, model, this.email);
     const csId = await uploadAssignFileId(this.baseUrl, this.authHeaders, learner, this.email);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/calculate-prosody-similarity?svFileId=${svId}&csFileId=${csId}`,
       { headers: this.authHeaders },
     );
-    return resp.json();
+    return asJson<GetCalculateProsodySimilarityResponses[200]>(resp);
   }
 }
 
@@ -311,13 +330,13 @@ export class EgemapsNamespace {
     private readonly email: string,
   ) {}
 
-  async extract(audio: AudioInput): Promise<unknown> {
+  async extract(audio: AudioInput): Promise<GetGemapsExtractResponses[200]> {
     const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, this.email);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/gemaps-extract?svFileId=${fileId}`,
       { headers: this.authHeaders },
     );
-    return resp.json();
+    return asJson<GetGemapsExtractResponses[200]>(resp);
   }
 }
 
@@ -331,7 +350,7 @@ export class SoundLevelNamespace {
     audio: AudioInput,
     startSec = 0,
     endSec?: number,
-  ): Promise<unknown> {
+  ): Promise<PostSoundLevelResponses[200]> {
     // start_sec=0 is treated as falsy by the backend
     if (startSec === 0) {
       console.warn(
@@ -349,6 +368,6 @@ export class SoundLevelNamespace {
       headers: { ...this.authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    return resp.json();
+    return asJson<PostSoundLevelResponses[200]>(resp);
   }
 }
