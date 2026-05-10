@@ -150,9 +150,14 @@ See [vocametrix-examples](https://github.com/pmarmaroli/vocametrix-examples) for
 - [Interactive docs](https://www.vocametrix.com/api-docs)
 - [OpenAPI 3.1 spec](https://www.vocametrix.com/openapi.json) — for typed client generation or Swagger UI
 
-## Related SDKs
+## Related projects
 
-- [vocametrix-python](https://github.com/pmarmaroli/vocametrix-python) — Python SDK (`pip install vocametrix`)
+Part of the Vocametrix ecosystem:
+
+- 📘 **[Vocametrix API documentation](https://www.vocametrix.com/api-docs)** — full reference for all 48 endpoints.
+- 📐 **[OpenAPI 3.1 specification](https://www.vocametrix.com/openapi.json)** — machine-readable schema, used to generate the typed client in this SDK.
+- 🐍 **[vocametrix-python](https://github.com/pmarmaroli/vocametrix-python)** — official Python SDK (`pip install vocametrix`).
+- 🤖 **[vocametrix-mcp](https://github.com/pmarmaroli/vocametrix-mcp)** — Model Context Protocol server for use with Claude, Cursor, Zed, and any MCP-compatible client.
 
 ## Contributing
 
