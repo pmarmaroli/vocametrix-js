@@ -42,9 +42,6 @@
   },
   "homepage": "https://www.vocametrix.com/api-docs",
   "bugs": { "url": "https://github.com/pmarmaroli/vocametrix-js/issues" },
-  "dependencies": {
-    "eventsource": "^2.0.2"
-  },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.64.0",
     "@types/jest": "^29.5.0",

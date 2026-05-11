@@ -45,7 +45,8 @@ export class VocametrixClient {
   private readonly _authHeaders: Record<string, string>;
 
   constructor(options: VocametrixClientOptions = {}) {
-    const key = options.apiKey ?? process.env["VOCAMETRIX_API_KEY"];
+    const rawKey = options.apiKey ?? process.env["VOCAMETRIX_API_KEY"];
+    const key = rawKey?.trim();
     if (!key) {
       throw new Error(
         "API key required. Pass apiKey: '...' or set VOCAMETRIX_API_KEY env var.",
@@ -54,7 +55,9 @@ export class VocametrixClient {
     this._apiKey = key;
     this._baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, "");
     this._authHeaders = { "X-API-Key": this._apiKey };
-    const email = options.email ?? "sdk@vocametrix.com";
+    // Matches the Python SDK default. The backend currently only accepts a
+    // small allow-list of SDK emails; do not change without backend support.
+    const email = options.email ?? "info@vocametrix.com";
 
     const b = this._baseUrl;
     const h = this._authHeaders;

@@ -44,12 +44,13 @@ function asJson<T>(resp: { json(): Promise<unknown> }): Promise<T> {
 }
 
 function makeTranscriptionEvent(payload: SseEvent): TranscriptionEvent {
+  const normalised = (payload.status ?? "").toLowerCase();
   return {
     status: payload.status,
     progress: payload.progress,
     displayText: payload.displayText,
-    isTerminalSuccess: payload.status === "Succeeded",
-    isTerminalFailure: ["failed", "error"].includes(payload.status.toLowerCase()),
+    isTerminalSuccess: normalised === "succeeded",
+    isTerminalFailure: ["failed", "error"].includes(normalised),
     raw: payload,
   };
 }
@@ -90,8 +91,9 @@ export class DsiNamespace {
   async calculate(sustainedVowel: AudioInput, email?: string): Promise<GetCalculateDsiResponses[200]> {
     const effectiveEmail = email ?? this.email;
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId });
     const resp = await fetchWithRetry(
-      `${this.baseUrl}/api/calculate-dsi?svFileId=${svId}`,
+      `${this.baseUrl}/api/calculate-dsi?${params.toString()}`,
       { headers: this.authHeaders },
     );
     return asJson<GetCalculateDsiResponses[200]>(resp);
@@ -108,8 +110,9 @@ export class CppNamespace {
   async calculate(sustainedVowel: AudioInput, email?: string): Promise<GetCalculateCppResponses[200]> {
     const effectiveEmail = email ?? this.email;
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId });
     const resp = await fetchWithRetry(
-      `${this.baseUrl}/api/calculate-cpp?svFileId=${svId}`,
+      `${this.baseUrl}/api/calculate-cpp?${params.toString()}`,
       { headers: this.authHeaders },
     );
     return asJson<GetCalculateCppResponses[200]>(resp);
@@ -130,8 +133,9 @@ export class HnrNamespace {
   ): Promise<GetCalculateHnrMultibandResponses[200]> {
     const effectiveEmail = email ?? this.email;
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId, gender: String(gender) });
     const resp = await fetchWithRetry(
-      `${this.baseUrl}/api/calculate-hnr-multiband?svFileId=${svId}&gender=${String(gender)}`,
+      `${this.baseUrl}/api/calculate-hnr-multiband?${params.toString()}`,
       { headers: this.authHeaders },
     );
     return asJson<GetCalculateHnrMultibandResponses[200]>(resp);
@@ -148,8 +152,9 @@ export class JitterShimmerNamespace {
   async calculate(sustainedVowel: AudioInput, email?: string): Promise<GetJitterShimmerResponses[200]> {
     const effectiveEmail = email ?? this.email;
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId });
     const resp = await fetchWithRetry(
-      `${this.baseUrl}/api/jitter-shimmer?svFileId=${svId}`,
+      `${this.baseUrl}/api/jitter-shimmer?${params.toString()}`,
       { headers: this.authHeaders },
     );
     return asJson<GetJitterShimmerResponses[200]>(resp);
@@ -171,8 +176,13 @@ export class VrpNamespace {
   ): Promise<GetCalculateAmbitusResponses[200]> {
     const effectiveEmail = email ?? this.email;
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({
+      svFileId: svId,
+      age: String(age),
+      gender: String(gender),
+    });
     const resp = await fetchWithRetry(
-      `${this.baseUrl}/api/calculate-ambitus?svFileId=${svId}&age=${String(age)}&gender=${String(gender)}`,
+      `${this.baseUrl}/api/calculate-ambitus?${params.toString()}`,
       { headers: this.authHeaders },
     );
     return asJson<GetCalculateAmbitusResponses[200]>(resp);
@@ -217,7 +227,13 @@ export class TranscriptionNamespace {
       headers: { ...this.authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({ blobUrl, locale }),
     });
-    const { transcriptionId } = (await resp.json()) as { transcriptionId: string };
+    const startBody = (await resp.json()) as { transcriptionId?: unknown };
+    if (typeof startBody.transcriptionId !== "string" || startBody.transcriptionId.length === 0) {
+      throw new VocametrixServerError(
+        `offline-speech-to-text response missing 'transcriptionId' (got ${JSON.stringify(startBody)})`,
+      );
+    }
+    const transcriptionId = startBody.transcriptionId;
 
     for await (const payload of sseStream(this.baseUrl, transcriptionId, this.apiKey)) {
       yield makeTranscriptionEvent(payload);
@@ -290,7 +306,13 @@ export class StutteringNamespace {
       headers: { ...this.authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({ fileId }),
     });
-    const { session_id: sessionId } = (await startResp.json()) as { session_id: string };
+    const startBody = (await startResp.json()) as { session_id?: unknown };
+    if (typeof startBody.session_id !== "string" || startBody.session_id.length === 0) {
+      throw new VocametrixServerError(
+        `classify-stuttering response missing 'session_id' (got ${JSON.stringify(startBody)})`,
+      );
+    }
+    const sessionId = startBody.session_id;
 
     const deadline = Date.now() + timeoutMs;
     let completed = false;
@@ -301,7 +323,7 @@ export class StutteringNamespace {
         { headers: this.authHeaders },
       );
       const statusBody = (await statusResp.json()) as Record<string, string>;
-      const state = statusBody["status"] ?? statusBody["state"] ?? "";
+      const state = (statusBody["status"] ?? statusBody["state"] ?? "").toLowerCase();
       if (["completed", "succeeded", "done"].includes(state)) {
         completed = true;
         break;
@@ -340,8 +362,9 @@ export class ProsodyNamespace {
     const effectiveEmail = email ?? this.email;
     const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, model, effectiveEmail);
     const csId = await uploadAssignFileId(this.baseUrl, this.authHeaders, learner, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId, csFileId: csId });
     const resp = await fetchWithRetry(
-      `${this.baseUrl}/api/calculate-prosody-similarity?svFileId=${svId}&csFileId=${csId}`,
+      `${this.baseUrl}/api/calculate-prosody-similarity?${params.toString()}`,
       { headers: this.authHeaders },
     );
     return asJson<GetCalculateProsodySimilarityResponses[200]>(resp);
@@ -358,8 +381,9 @@ export class EgemapsNamespace {
   async extract(audio: AudioInput, email?: string): Promise<GetGemapsExtractResponses[200]> {
     const effectiveEmail = email ?? this.email;
     const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: fileId });
     const resp = await fetchWithRetry(
-      `${this.baseUrl}/api/gemaps-extract?svFileId=${fileId}`,
+      `${this.baseUrl}/api/gemaps-extract?${params.toString()}`,
       { headers: this.authHeaders },
     );
     return asJson<GetGemapsExtractResponses[200]>(resp);

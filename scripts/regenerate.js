@@ -36,5 +36,6 @@ try {
   execSync(cmd, { stdio: "inherit", cwd: ROOT });
   console.log(`Generated client written to ${OUTPUT_DIR}`);
 } catch (err) {
+  console.error("Regeneration failed:", err);
   process.exitCode = 1;
 }
