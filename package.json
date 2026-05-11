@@ -1,6 +1,6 @@
 {
   "name": "vocametrix",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Official JavaScript/TypeScript SDK for the Vocametrix voice analysis API",
   "type": "module",
   "main": "./dist/index.cjs",
