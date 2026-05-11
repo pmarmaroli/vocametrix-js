@@ -134,10 +134,8 @@ export async function* sseStream(
   transcriptionId: string,
   apiKey: string,
 ): AsyncGenerator<SseEvent> {
-  // Auth via ?apiKey= query string — X-API-Key header is intentionally NOT used
-  // here because EventSource cannot send custom headers.
-  const url = `${baseUrl}/api/transcription-progress/${transcriptionId}?apiKey=${apiKey}`;
-  const resp = await fetch(url);
+  const url = `${baseUrl}/api/transcription-progress/${transcriptionId}`;
+  const resp = await fetch(url, { headers: { "X-API-Key": apiKey } });
   if (!resp.ok || !resp.body) {
     let body: unknown;
     try { body = await resp.json(); } catch { body = resp.statusText; }
@@ -154,20 +152,24 @@ export async function* sseStream(
     const value = chunk.value ?? new Uint8Array(0);
     buffer += decoder.decode(value, { stream: true });
 
+    // Normalise CRLF so both \n\n and \r\n\r\n are handled uniformly
+    buffer = buffer.replace(/\r\n/g, "\n");
+
     let boundary: number;
     while ((boundary = buffer.indexOf("\n\n")) !== -1) {
       const eventText = buffer.slice(0, boundary);
       buffer = buffer.slice(boundary + 2);
 
-      const dataLine = eventText
+      // Collect ALL data: lines (SSE spec: multiple data lines joined with \n)
+      const dataLines = eventText
         .split("\n")
-        .find((l) => l.startsWith("data:"))
-        ?.slice(5)
-        .trim();
+        .filter((l) => l.startsWith("data:"))
+        .map((l) => l.slice(5).trimStart());
 
-      if (dataLine) {
+      if (dataLines.length > 0) {
+        const raw = dataLines.join("\n");
         try {
-          yield JSON.parse(dataLine) as SseEvent;
+          yield JSON.parse(raw) as SseEvent;
         } catch {
           // skip malformed events
         }

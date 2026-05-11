@@ -215,3 +215,71 @@ describe("rate limit retryAfter propagation", () => {
     expect((caughtError as { retryAfter?: number }).retryAfter).toBe(30);
   });
 });
+
+// ── SSE streaming ─────────────────────────────────────────────────────────
+
+describe("sseStream", () => {
+  test("authenticates via X-API-Key header, not URL query param", async () => {
+    const capturedRequests: Array<{ url: string; headers: Record<string, string> }> = [];
+    (global as Record<string, unknown>)["fetch"] = jest.fn().mockImplementation(
+      (...args: unknown[]) => {
+        const url = args[0] as string;
+        const init = args[1] as { headers?: Record<string, string> } | undefined;
+        capturedRequests.push({ url, headers: (init?.headers ?? {}) as Record<string, string> });
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode('data: {"status":"done"}\n\n'));
+            controller.close();
+          },
+        });
+        return Promise.resolve({ ok: true, status: 200, body: stream });
+      },
+    );
+
+    const { sseStream } = await import("../src/_http.js");
+    const gen = sseStream("https://api.example.com", "txn-abc", "my-secret-key");
+    await gen.next();
+
+    expect(capturedRequests[0]!.url).not.toContain("apiKey");
+    expect(capturedRequests[0]!.url).not.toContain("my-secret-key");
+    expect(capturedRequests[0]!.headers["X-API-Key"]).toBe("my-secret-key");
+  });
+
+  test("handles CRLF line endings", async () => {
+    const encoder = new TextEncoder();
+    (global as Record<string, unknown>)["fetch"] = jest.fn().mockImplementation(() => {
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: {"status":"ok"}\r\n\r\n'));
+          controller.close();
+        },
+      });
+      return Promise.resolve({ ok: true, status: 200, body: stream });
+    });
+
+    const { sseStream } = await import("../src/_http.js");
+    const gen = sseStream("https://api.example.com", "txn-1", "key");
+    const event = (await gen.next()).value;
+    expect(event?.status).toBe("ok");
+  });
+
+  test("collects multi-line data fields", async () => {
+    const encoder = new TextEncoder();
+    (global as Record<string, unknown>)["fetch"] = jest.fn().mockImplementation(() => {
+      const stream = new ReadableStream({
+        start(controller) {
+          // Two data: lines — SSE spec says concatenate with \n
+          controller.enqueue(encoder.encode('data: {"status":\ndata: "multi"}\n\n'));
+          controller.close();
+        },
+      });
+      return Promise.resolve({ ok: true, status: 200, body: stream });
+    });
+
+    const { sseStream } = await import("../src/_http.js");
+    const gen = sseStream("https://api.example.com", "txn-2", "key");
+    const event = (await gen.next()).value;
+    expect(event?.status).toBe("multi");
+  });
+});
