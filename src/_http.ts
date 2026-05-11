@@ -20,6 +20,34 @@ function backoffMs(attempt: number, retryAfter?: number): number {
   return BASE_BACKOFF_MS * Math.pow(2, attempt);
 }
 
+const AUDIO_MIME: Record<string, string> = {
+  ".wav": "audio/wav",
+  ".mp3": "audio/mpeg",
+  ".flac": "audio/flac",
+  ".ogg": "audio/ogg",
+  ".m4a": "audio/mp4",
+  ".webm": "audio/webm",
+};
+
+export function audioContentType(audio: AudioInput): string {
+  if (typeof audio === "string") {
+    const dot = audio.lastIndexOf(".");
+    if (dot !== -1) {
+      const ext = audio.slice(dot).toLowerCase();
+      return AUDIO_MIME[ext] ?? "audio/wav";
+    }
+  }
+  return "audio/wav";
+}
+
+function audioFilename(audio: AudioInput): string {
+  if (typeof audio === "string") {
+    const slash = Math.max(audio.lastIndexOf("/"), audio.lastIndexOf("\\"));
+    return slash !== -1 ? audio.slice(slash + 1) : audio;
+  }
+  return "audio.wav";
+}
+
 export interface RequestOptions {
   method?: string;
   headers?: Record<string, string>;
@@ -80,8 +108,10 @@ export async function uploadAssignFileId(
   email = "sdk@vocametrix.com",
 ): Promise<string> {
   const data = readAudio(audio);
+  const contentType = audioContentType(audio);
+  const filename = audioFilename(audio);
   const form = new FormData();
-  form.append("audio", new Blob([data], { type: "audio/wav" }), "audio.wav");
+  form.append("audio", new Blob([data], { type: contentType }), filename);
   form.append("email", email);
 
   const resp = await fetchWithRetry(`${baseUrl}/api/assignFileId`, {
@@ -108,10 +138,11 @@ export async function uploadBlobUrl(
   };
 
   const data = readAudio(audio);
+  const contentType = audioContentType(audio);
   const put = await fetch(uploadURL, {
     method: "PUT",
     body: data,
-    headers: { "x-ms-blob-type": "BlockBlob", "Content-Type": "audio/wav" },
+    headers: { "x-ms-blob-type": "BlockBlob", "Content-Type": contentType },
   });
   if (!put.ok) {
     const errText = await put.text();

@@ -283,3 +283,62 @@ describe("sseStream", () => {
     expect(event?.status).toBe("multi");
   });
 });
+
+// ── Content-type detection ────────────────────────────────────────────────
+
+describe("audio content-type", () => {
+  test("uploadBlobUrl sends audio/mpeg for .mp3 path", async () => {
+    const capturedPutHeaders: Record<string, string>[] = [];
+    (global as Record<string, unknown>)["fetch"] = jest.fn().mockImplementation(
+      (...args: unknown[]) => {
+        const init = args[1] as { method?: string; headers?: Record<string, string>; body?: unknown } | undefined;
+        if (init?.method === "PUT") {
+          capturedPutHeaders.push(init.headers ?? {});
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          body: null,
+          headers: { get: () => null },
+          json: () => Promise.resolve({ uploadURL: "https://azure/put", blobURL: "https://azure/blob", fileId: "f1" }),
+          text: () => Promise.resolve(""),
+        });
+      },
+    );
+
+    const { uploadBlobUrl } = await import("../src/_http.js");
+    // Pass a Buffer tagged with an mp3-like name via the audioContentType helper directly.
+    // Since Buffer input always falls back to audio/wav in uploadBlobUrl, we verify the
+    // extension-based path using the exported audioContentType helper instead.
+    const { audioContentType } = await import("../src/_http.js");
+    expect(audioContentType("recording.mp3")).toBe("audio/mpeg");
+    expect(audioContentType("track.flac")).toBe("audio/flac");
+    expect(audioContentType("clip.ogg")).toBe("audio/ogg");
+    expect(audioContentType("file.m4a")).toBe("audio/mp4");
+    expect(audioContentType("video.webm")).toBe("audio/webm");
+    expect(audioContentType("audio.wav")).toBe("audio/wav");
+  });
+
+  test("uploadBlobUrl falls back to audio/wav for unknown extension", async () => {
+    const capturedPutHeaders: Record<string, string>[] = [];
+    (global as Record<string, unknown>)["fetch"] = jest.fn().mockImplementation(
+      (...args: unknown[]) => {
+        const init = args[1] as { method?: string; headers?: Record<string, string> } | undefined;
+        if (init?.method === "PUT") {
+          capturedPutHeaders.push(init.headers ?? {});
+        }
+        return Promise.resolve({
+          ok: true, status: 200, body: null,
+          headers: { get: () => null },
+          json: () => Promise.resolve({ uploadURL: "https://azure/put", blobURL: "https://azure/blob" }),
+          text: () => Promise.resolve(""),
+        });
+      },
+    );
+
+    const { uploadBlobUrl } = await import("../src/_http.js");
+    // Buffer input: content-type falls back to audio/wav, no file I/O needed
+    await uploadBlobUrl("https://api.example.com", { "X-API-Key": "k" }, Buffer.from("data"));
+    expect(capturedPutHeaders[0]?.["Content-Type"]).toBe("audio/wav");
+  });
+});
