@@ -160,3 +160,58 @@ describe("fetchWithRetry", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+// ── Backoff formula ───────────────────────────────────────────────────────
+
+describe("backoff formula", () => {
+  test("sleeps 2000ms, 4000ms, 8000ms on consecutive retries", async () => {
+    jest.useFakeTimers();
+    const sleepDurations: number[] = [];
+    const origSetTimeout = global.setTimeout;
+    jest.spyOn(global, "setTimeout").mockImplementation((fn: (_: void) => void, ms?: number) => {
+      if (ms !== undefined) sleepDurations.push(ms);
+      return origSetTimeout(fn, 0);
+    });
+
+    mockFetch(
+      { ok: false, status: 503, text: () => "err", json: () => Promise.reject(new Error()) },
+      { ok: false, status: 503, text: () => "err", json: () => Promise.reject(new Error()) },
+      { ok: false, status: 503, text: () => "err", json: () => Promise.reject(new Error()) },
+      { ok: false, status: 503, text: () => "err", json: () => Promise.reject(new Error()) },
+    );
+
+    const { fetchWithRetry } = await import("../src/_http.js");
+    const settled = fetchWithRetry("https://example.com/", {}).catch(() => {});
+    await jest.runAllTimersAsync();
+    await settled;
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+
+    expect(sleepDurations.slice(0, 3)).toEqual([2000, 4000, 8000]);
+  });
+});
+
+// ── retryAfter forwarded to error ─────────────────────────────────────────
+
+describe("rate limit retryAfter propagation", () => {
+  test("VocametrixRateLimitError.retryAfter matches Retry-After header", async () => {
+    jest.useFakeTimers();
+    mockFetch(
+      { ok: false, status: 429, headers: { "Retry-After": "30" }, text: () => "rate limited", json: () => Promise.reject(new Error()) },
+      { ok: false, status: 429, headers: { "Retry-After": "30" }, text: () => "rate limited", json: () => Promise.reject(new Error()) },
+      { ok: false, status: 429, headers: { "Retry-After": "30" }, text: () => "rate limited", json: () => Promise.reject(new Error()) },
+      { ok: false, status: 429, headers: { "Retry-After": "30" }, text: () => "rate limited", json: () => Promise.reject(new Error()) },
+    );
+    const { fetchWithRetry } = await import("../src/_http.js");
+    const { VocametrixRateLimitError } = await import("../src/exceptions.js");
+
+    let caughtError: unknown;
+    const settled = fetchWithRetry("https://example.com/", {}).catch((e) => { caughtError = e; });
+    await jest.runAllTimersAsync();
+    await settled;
+    jest.useRealTimers();
+
+    expect(caughtError).toBeInstanceOf(VocametrixRateLimitError);
+    expect((caughtError as { retryAfter?: number }).retryAfter).toBe(30);
+  });
+});

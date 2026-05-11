@@ -63,7 +63,7 @@ export function isRetryable(status: number): boolean {
   return RETRYABLE.has(status);
 }
 
-export function raiseForStatus(status: number, body: unknown): never {
+export function raiseForStatus(status: number, body: unknown, retryAfter?: number): never {
   const msg = typeof body === "object" && body !== null
     ? JSON.stringify(body)
     : `HTTP ${String(status)}`;
@@ -72,7 +72,7 @@ export function raiseForStatus(status: number, body: unknown): never {
   if (status === 403) throw new VocametrixForbiddenError(msg, body);
   if (status === 404) throw new VocametrixNotFoundError(msg, body);
   if (status === 422) throw new VocametrixValidationError(msg, body);
-  if (status === 429) throw new VocametrixRateLimitError(msg, undefined, body);
+  if (status === 429) throw new VocametrixRateLimitError(msg, retryAfter, body);
   if (status >= 500) throw new VocametrixServerError(msg, status, body);
   throw new VocametrixError(msg, status, body);
 }

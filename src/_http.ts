@@ -17,7 +17,7 @@ function sleep(ms: number): Promise<void> {
 
 function backoffMs(attempt: number, retryAfter?: number): number {
   if (retryAfter !== undefined) return retryAfter * 1000;
-  return BASE_BACKOFF_MS ** attempt;
+  return BASE_BACKOFF_MS * Math.pow(2, attempt);
 }
 
 export interface RequestOptions {
@@ -49,17 +49,19 @@ export async function fetchWithRetry(
     if (resp.ok) return resp;
 
     // Non-retryable 4xx — raise immediately (except 429)
+    const retryAfterHeader = resp.headers.get("Retry-After");
+    const retryAfterSec = retryAfterHeader ? parseInt(retryAfterHeader) : undefined;
     if (!isRetryable(resp.status) || attempt === MAX_RETRIES) {
       let body: unknown;
       try { body = await resp.json(); } catch { body = await resp.text(); }
-      raiseForStatus(resp.status, body);
+      raiseForStatus(resp.status, body, retryAfterSec);
     }
 
     // Retryable — back off
-    const retryAfter = resp.headers.get("Retry-After");
-    const wait = backoffMs(attempt, retryAfter ? parseInt(retryAfter) : undefined);
+    const wait = backoffMs(attempt, retryAfterSec);
     await sleep(wait);
   }
+  // TypeScript control-flow guard: the loop always returns or throws before this point.
   throw new VocametrixServerError("Max retries exceeded");
 }
 
