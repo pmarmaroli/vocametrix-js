@@ -13,7 +13,7 @@ import {
   sseStream,
   SseEvent,
 } from "./_http.js";
-import { VocametrixServerError } from "./exceptions.js";
+import { VocametrixServerError, VocametrixValidationError } from "./exceptions.js";
 import type {
   GetCalculateAvqiResponses,
   GetCalculateDsiResponses,
@@ -64,11 +64,13 @@ export class AvqiNamespace {
   async calculate(
     sustainedVowel: AudioInput,
     connectedSpeech?: AudioInput,
+    email?: string,
   ): Promise<GetCalculateAvqiResponses[200]> {
-    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
     const params = new URLSearchParams({ svFileId: svId });
     if (connectedSpeech !== undefined) {
-      const csId = await uploadAssignFileId(this.baseUrl, this.authHeaders, connectedSpeech, this.email);
+      const csId = await uploadAssignFileId(this.baseUrl, this.authHeaders, connectedSpeech, effectiveEmail);
       params.set("csFileId", csId);
     }
     const resp = await fetchWithRetry(`${this.baseUrl}/api/calculate-avqi?${params.toString()}`, {
@@ -85,8 +87,9 @@ export class DsiNamespace {
     private readonly email: string,
   ) {}
 
-  async calculate(sustainedVowel: AudioInput): Promise<GetCalculateDsiResponses[200]> {
-    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
+  async calculate(sustainedVowel: AudioInput, email?: string): Promise<GetCalculateDsiResponses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/calculate-dsi?svFileId=${svId}`,
       { headers: this.authHeaders },
@@ -102,8 +105,9 @@ export class CppNamespace {
     private readonly email: string,
   ) {}
 
-  async calculate(sustainedVowel: AudioInput): Promise<GetCalculateCppResponses[200]> {
-    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
+  async calculate(sustainedVowel: AudioInput, email?: string): Promise<GetCalculateCppResponses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/calculate-cpp?svFileId=${svId}`,
       { headers: this.authHeaders },
@@ -122,8 +126,10 @@ export class HnrNamespace {
   async calculate(
     sustainedVowel: AudioInput,
     gender: 1 | 2 = 1,
+    email?: string,
   ): Promise<GetCalculateHnrMultibandResponses[200]> {
-    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/calculate-hnr-multiband?svFileId=${svId}&gender=${String(gender)}`,
       { headers: this.authHeaders },
@@ -139,8 +145,9 @@ export class JitterShimmerNamespace {
     private readonly email: string,
   ) {}
 
-  async calculate(sustainedVowel: AudioInput): Promise<GetJitterShimmerResponses[200]> {
-    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
+  async calculate(sustainedVowel: AudioInput, email?: string): Promise<GetJitterShimmerResponses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/jitter-shimmer?svFileId=${svId}`,
       { headers: this.authHeaders },
@@ -160,8 +167,10 @@ export class VrpNamespace {
     sustainedVowel: AudioInput,
     age = 30,
     gender: 1 | 2 = 1,
+    email?: string,
   ): Promise<GetCalculateAmbitusResponses[200]> {
-    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, this.email);
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/calculate-ambitus?svFileId=${svId}&age=${String(age)}&gender=${String(gender)}`,
       { headers: this.authHeaders },
@@ -248,8 +257,10 @@ export class PhonemeNamespace {
   async detect(
     audio: AudioInput,
     language = "fr",
+    email?: string,
   ): Promise<PostAnalyzePhonemesLiveResponses[200]> {
-    const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, this.email);
+    const effectiveEmail = email ?? this.email;
+    const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, effectiveEmail);
     const resp = await fetchWithRetry(`${this.baseUrl}/api/classify-phoneme`, {
       method: "POST",
       headers: { ...this.authHeaders, "Content-Type": "application/json" },
@@ -270,8 +281,10 @@ export class StutteringNamespace {
     audio: AudioInput,
     pollIntervalMs = 5000,
     timeoutMs = 620_000,
+    email?: string,
   ): Promise<GetTherapyResultBySessionIdResponses[200]> {
-    const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, this.email);
+    const effectiveEmail = email ?? this.email;
+    const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, effectiveEmail);
     const startResp = await fetchWithRetry(`${this.baseUrl}/api/classify-stuttering`, {
       method: "POST",
       headers: { ...this.authHeaders, "Content-Type": "application/json" },
@@ -280,6 +293,7 @@ export class StutteringNamespace {
     const { session_id: sessionId } = (await startResp.json()) as { session_id: string };
 
     const deadline = Date.now() + timeoutMs;
+    let completed = false;
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, pollIntervalMs));
       const statusResp = await fetchWithRetry(
@@ -288,10 +302,19 @@ export class StutteringNamespace {
       );
       const statusBody = (await statusResp.json()) as Record<string, string>;
       const state = statusBody["status"] ?? statusBody["state"] ?? "";
-      if (["completed", "succeeded", "done"].includes(state)) break;
+      if (["completed", "succeeded", "done"].includes(state)) {
+        completed = true;
+        break;
+      }
       if (["failed", "error"].includes(state)) {
         throw new VocametrixServerError(`Stuttering classification failed: ${JSON.stringify(statusBody)}`);
       }
+    }
+
+    if (!completed) {
+      throw new VocametrixServerError(
+        `Stuttering classification timed out after ${timeoutMs}ms (session=${sessionId})`,
+      );
     }
 
     const resultResp = await fetchWithRetry(
@@ -312,9 +335,11 @@ export class ProsodyNamespace {
   async similarity(
     model: AudioInput,
     learner: AudioInput,
+    email?: string,
   ): Promise<GetCalculateProsodySimilarityResponses[200]> {
-    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, model, this.email);
-    const csId = await uploadAssignFileId(this.baseUrl, this.authHeaders, learner, this.email);
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, model, effectiveEmail);
+    const csId = await uploadAssignFileId(this.baseUrl, this.authHeaders, learner, effectiveEmail);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/calculate-prosody-similarity?svFileId=${svId}&csFileId=${csId}`,
       { headers: this.authHeaders },
@@ -330,8 +355,9 @@ export class EgemapsNamespace {
     private readonly email: string,
   ) {}
 
-  async extract(audio: AudioInput): Promise<GetGemapsExtractResponses[200]> {
-    const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, this.email);
+  async extract(audio: AudioInput, email?: string): Promise<GetGemapsExtractResponses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, effectiveEmail);
     const resp = await fetchWithRetry(
       `${this.baseUrl}/api/gemaps-extract?svFileId=${fileId}`,
       { headers: this.authHeaders },
@@ -351,13 +377,10 @@ export class SoundLevelNamespace {
     startSec = 0,
     endSec?: number,
   ): Promise<PostSoundLevelResponses[200]> {
-    // start_sec=0 is treated as falsy by the backend
     if (startSec === 0) {
-      console.warn(
-        "startSec=0 is treated as falsy by the backend; using 0.001 instead. " +
-        "Pass startSec=0.001 explicitly to suppress this warning.",
+      throw new VocametrixValidationError(
+        "startSec=0 is invalid: the backend treats 0 as falsy. Pass startSec=0.001 or greater.",
       );
-      startSec = 0.001;
     }
 
     const blobURL = await uploadBlobUrl(this.baseUrl, this.authHeaders, audio);

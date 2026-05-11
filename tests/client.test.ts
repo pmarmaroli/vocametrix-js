@@ -106,18 +106,13 @@ describe("pronunciation.assess", () => {
 // ── startSec=0 fix ────────────────────────────────────────────────────────
 
 describe("soundLevel.measure", () => {
-  test("replaces startSec=0 with 0.001 and warns", async () => {
-    mockFetch(
-      { ok: true, json: () => Promise.resolve({ uploadURL: "https://azure/put", blobURL: "https://azure/blob" }) },
-      { ok: true },
-      { ok: true, json: () => Promise.resolve({ dBFS: -20 }) },
-    );
-    const consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+  test("throws VocametrixValidationError when startSec=0", async () => {
     const { VocametrixClient } = await import("../src/client.js");
+    const { VocametrixValidationError } = await import("../src/exceptions.js");
     const client = new VocametrixClient({ apiKey: "test-key" });
-    await client.soundLevel.measure(Buffer.from("audio"), 0);
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("0.001"));
-    consoleSpy.mockRestore();
+    await expect(
+      client.soundLevel.measure(Buffer.from("audio"), 0),
+    ).rejects.toBeInstanceOf(VocametrixValidationError);
   });
 });
 
@@ -340,5 +335,64 @@ describe("audio content-type", () => {
     // Buffer input: content-type falls back to audio/wav, no file I/O needed
     await uploadBlobUrl("https://api.example.com", { "X-API-Key": "k" }, Buffer.from("data"));
     expect(capturedPutHeaders[0]?.["Content-Type"]).toBe("audio/wav");
+  });
+});
+
+// ── Stuttering timeout ────────────────────────────────────────────────────
+
+describe("stuttering.classify", () => {
+  test("throws VocametrixServerError on timeout", async () => {
+    jest.useFakeTimers();
+    mockFetch(
+      // uploadAssignFileId
+      { ok: true, json: () => Promise.resolve({ fileId: "f1" }) },
+      // classify-stuttering
+      { ok: true, json: () => Promise.resolve({ session_id: "sess-1" }) },
+      // therapy-status — always "pending"
+      { ok: true, json: () => Promise.resolve({ status: "pending" }) },
+      { ok: true, json: () => Promise.resolve({ status: "pending" }) },
+    );
+
+    const { VocametrixClient } = await import("../src/client.js");
+    const { VocametrixServerError } = await import("../src/exceptions.js");
+
+    const client = new VocametrixClient({ apiKey: "test-key" });
+
+    let caught: unknown;
+    const settled = client.stuttering.classify(Buffer.from("audio"), 1000, 3000)
+      .catch((e: unknown) => { caught = e; });
+
+    await jest.runAllTimersAsync();
+    jest.useRealTimers();
+    await settled;
+
+    expect(caught).toBeInstanceOf(VocametrixServerError);
+    expect((caught as Error).message).toMatch(/timed out/i);
+  });
+});
+
+// ── Per-call email override ───────────────────────────────────────────────
+
+describe("per-call email override", () => {
+  test("avqi.calculate uses per-call email instead of client default", async () => {
+    const capturedForms: FormData[] = [];
+    (global as Record<string, unknown>)["fetch"] = jest.fn().mockImplementation(
+      (...args: unknown[]) => {
+        const init = args[1] as { body?: FormData } | undefined;
+        if (init?.body instanceof FormData) capturedForms.push(init.body);
+        return Promise.resolve({
+          ok: true, status: 200, body: null,
+          headers: { get: () => null },
+          json: () => Promise.resolve({ fileId: "f1", AVQI: 3.0 }),
+          text: () => Promise.resolve(""),
+        });
+      },
+    );
+
+    const { VocametrixClient } = await import("../src/client.js");
+    const client = new VocametrixClient({ apiKey: "k", email: "default@test.com" });
+    await client.avqi.calculate(Buffer.from("sv"), undefined, "override@test.com");
+
+    expect(capturedForms[0]?.get("email")).toBe("override@test.com");
   });
 });
