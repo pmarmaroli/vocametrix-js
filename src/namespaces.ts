@@ -28,6 +28,13 @@ import type {
   GetCalculateProsodySimilarityResponses,
   GetGemapsExtractResponses,
   PostSoundLevelResponses,
+  GetCalculateH1H2Responses,
+  GetCalculateSpectralAdvancedResponses,
+  GetCalculateSzRatioResponses,
+  GetCalculateGneResponses,
+  GetCalculateFormantStatisticsResponses,
+  GetCalculateAbiResponses,
+  GetCalculateVoiceDynamicsResponses,
 } from "./_generated/types.gen.js";
 
 export interface TranscriptionEvent {
@@ -416,5 +423,227 @@ export class SoundLevelNamespace {
       body: JSON.stringify(body),
     });
     return asJson<PostSoundLevelResponses[200]>(resp);
+  }
+}
+
+export class AdvancedVoiceAnalysisNamespace {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly authHeaders: Record<string, string>,
+    private readonly email: string,
+  ) {}
+
+  async calculateH1H2(
+    sustainedVowel: AudioInput,
+    gender: 1 | 2 = 1,
+    email?: string,
+  ): Promise<GetCalculateH1H2Responses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId, gender: String(gender) });
+    const resp = await fetchWithRetry(
+      `${this.baseUrl}/api/calculate-h1-h2?${params.toString()}`,
+      { headers: this.authHeaders },
+    );
+    return asJson<GetCalculateH1H2Responses[200]>(resp);
+  }
+
+  async calculateSpectral(
+    sustainedVowel: AudioInput,
+    gender: 1 | 2 = 1,
+    email?: string,
+  ): Promise<GetCalculateSpectralAdvancedResponses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId, gender: String(gender) });
+    const resp = await fetchWithRetry(
+      `${this.baseUrl}/api/calculate-spectral-advanced?${params.toString()}`,
+      { headers: this.authHeaders },
+    );
+    return asJson<GetCalculateSpectralAdvancedResponses[200]>(resp);
+  }
+
+  async calculateSzRatio(
+    sustainedVowel: AudioInput,
+    connectedSpeech: AudioInput,
+    email?: string,
+  ): Promise<GetCalculateSzRatioResponses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const csId = await uploadAssignFileId(this.baseUrl, this.authHeaders, connectedSpeech, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId, csFileId: csId });
+    const resp = await fetchWithRetry(
+      `${this.baseUrl}/api/calculate-sz-ratio?${params.toString()}`,
+      { headers: this.authHeaders },
+    );
+    return asJson<GetCalculateSzRatioResponses[200]>(resp);
+  }
+
+  async calculateGne(
+    sustainedVowel: AudioInput,
+    email?: string,
+  ): Promise<GetCalculateGneResponses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId });
+    const resp = await fetchWithRetry(
+      `${this.baseUrl}/api/calculate-gne?${params.toString()}`,
+      { headers: this.authHeaders },
+    );
+    return asJson<GetCalculateGneResponses[200]>(resp);
+  }
+
+  async calculateFormantStatistics(
+    sustainedVowel: AudioInput,
+    gender: 1 | 2 = 1,
+    email?: string,
+  ): Promise<GetCalculateFormantStatisticsResponses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId, gender: String(gender) });
+    const resp = await fetchWithRetry(
+      `${this.baseUrl}/api/calculate-formant-statistics?${params.toString()}`,
+      { headers: this.authHeaders },
+    );
+    return asJson<GetCalculateFormantStatisticsResponses[200]>(resp);
+  }
+
+  async calculateAbi(
+    sustainedVowel: AudioInput,
+    email?: string,
+  ): Promise<GetCalculateAbiResponses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId });
+    const resp = await fetchWithRetry(
+      `${this.baseUrl}/api/calculate-abi?${params.toString()}`,
+      { headers: this.authHeaders },
+    );
+    return asJson<GetCalculateAbiResponses[200]>(resp);
+  }
+
+  async calculateVoiceDynamics(
+    sustainedVowel: AudioInput,
+    email?: string,
+  ): Promise<GetCalculateVoiceDynamicsResponses[200]> {
+    const effectiveEmail = email ?? this.email;
+    const svId = await uploadAssignFileId(this.baseUrl, this.authHeaders, sustainedVowel, effectiveEmail);
+    const params = new URLSearchParams({ svFileId: svId });
+    const resp = await fetchWithRetry(
+      `${this.baseUrl}/api/calculate-voice-dynamics?${params.toString()}`,
+      { headers: this.authHeaders },
+    );
+    return asJson<GetCalculateVoiceDynamicsResponses[200]>(resp);
+  }
+}
+
+export class AiAgentsNamespace {
+  constructor(
+    private readonly baseUrl: string,
+    private readonly authHeaders: Record<string, string>,
+  ) {}
+
+  async therapyPlan(
+    sessionMetadata: Record<string, unknown>,
+    wav2vecOutput: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const resp = await fetchWithRetry(`${this.baseUrl}/api/therapy-planning-agent`, {
+      method: "POST",
+      headers: { ...this.authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionMetadata, wav2vecOutput }),
+    });
+    return asJson<Record<string, unknown>>(resp);
+  }
+
+  async speechExercise(
+    patientProfile: Record<string, unknown>,
+    difficulty = "medium",
+  ): Promise<Record<string, unknown>> {
+    const resp = await fetchWithRetry(`${this.baseUrl}/api/speech-exercise-generator`, {
+      method: "POST",
+      headers: { ...this.authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ patientProfile, difficulty }),
+    });
+    return asJson<Record<string, unknown>>(resp);
+  }
+
+  async syntaxCheck(text: string, language = "en"): Promise<Record<string, unknown>> {
+    const resp = await fetchWithRetry(`${this.baseUrl}/api/syntax-checker-agent`, {
+      method: "POST",
+      headers: { ...this.authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ text, language }),
+    });
+    return asJson<Record<string, unknown>>(resp);
+  }
+
+  async spellCheck(text: string, language = "en"): Promise<Record<string, unknown>> {
+    const resp = await fetchWithRetry(`${this.baseUrl}/api/spell-agent`, {
+      method: "POST",
+      headers: { ...this.authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ text, language }),
+    });
+    return asJson<Record<string, unknown>>(resp);
+  }
+
+  async interpretMetrics(
+    metrics: Record<string, unknown>,
+    praatResults?: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> = { metrics };
+    if (praatResults !== undefined) body["praatResults"] = praatResults;
+    const resp = await fetchWithRetry(`${this.baseUrl}/api/voice-metrics-interpreter`, {
+      method: "POST",
+      headers: { ...this.authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return asJson<Record<string, unknown>>(resp);
+  }
+
+  async adaptiveExercise(
+    patientId: string,
+    sessionHistory: unknown[],
+  ): Promise<Record<string, unknown>> {
+    const resp = await fetchWithRetry(`${this.baseUrl}/api/adaptive-exercise-agent`, {
+      method: "POST",
+      headers: { ...this.authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ patientId, sessionHistory }),
+    });
+    return asJson<Record<string, unknown>>(resp);
+  }
+
+  async frenchToIpa(phoneticInput: unknown[]): Promise<Record<string, unknown>> {
+    const resp = await fetchWithRetry(`${this.baseUrl}/api/french-to-ipa-agent`, {
+      method: "POST",
+      headers: { ...this.authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ phoneticInput }),
+    });
+    return asJson<Record<string, unknown>>(resp);
+  }
+
+  async wordList(
+    targetPhoneme: string,
+    difficulty = "medium",
+    locale = "en-US",
+  ): Promise<Record<string, unknown>> {
+    const resp = await fetchWithRetry(`${this.baseUrl}/api/word-list-generator`, {
+      method: "POST",
+      headers: { ...this.authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ targetPhoneme, difficulty, locale }),
+    });
+    return asJson<Record<string, unknown>>(resp);
+  }
+
+  async therapistAssistant(
+    query: string,
+    context?: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> = { query };
+    if (context !== undefined) body["context"] = context;
+    const resp = await fetchWithRetry(`${this.baseUrl}/api/speech-therapist-assistant`, {
+      method: "POST",
+      headers: { ...this.authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return asJson<Record<string, unknown>>(resp);
   }
 }

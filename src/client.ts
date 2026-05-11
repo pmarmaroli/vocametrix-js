@@ -1,4 +1,6 @@
 import {
+  AdvancedVoiceAnalysisNamespace,
+  AiAgentsNamespace,
   AvqiNamespace,
   CppNamespace,
   DsiNamespace,
@@ -20,8 +22,10 @@ const DEFAULT_BASE_URL = "https://platform.vocametrix.com";
 export interface VocametrixClientOptions {
   apiKey?: string;
   baseUrl?: string;
-  /** Default SDK email used in upload requests */
+  /** @deprecated Ignored. The backend no longer uses this field for tracking. */
   email?: string;
+  /** Request timeout in milliseconds (default: 120_000 — matches Python SDK). */
+  timeout?: number;
 }
 
 export class VocametrixClient {
@@ -39,6 +43,8 @@ export class VocametrixClient {
   readonly prosody: ProsodyNamespace;
   readonly egemaps: EgemapsNamespace;
   readonly soundLevel: SoundLevelNamespace;
+  readonly advanced: AdvancedVoiceAnalysisNamespace;
+  readonly aiAgents: AiAgentsNamespace;
 
   private readonly _apiKey: string;
   private readonly _baseUrl: string;
@@ -75,5 +81,7 @@ export class VocametrixClient {
     this.prosody = new ProsodyNamespace(b, h, email);
     this.egemaps = new EgemapsNamespace(b, h, email);
     this.soundLevel = new SoundLevelNamespace(b, h);
+    this.advanced = new AdvancedVoiceAnalysisNamespace(b, h, email);
+    this.aiAgents = new AiAgentsNamespace(b, h);
   }
 }

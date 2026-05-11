@@ -25,13 +25,14 @@ function isAudioPayload(audio: AudioInput): audio is AudioPayload {
 
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 2000;
+const MAX_RETRY_AFTER_SEC = 60;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
 function backoffMs(attempt: number, retryAfter?: number): number {
-  if (retryAfter !== undefined) return retryAfter * 1000;
+  if (retryAfter !== undefined) return Math.min(retryAfter, MAX_RETRY_AFTER_SEC) * 1000;
   return BASE_BACKOFF_MS * Math.pow(2, attempt);
 }
 
@@ -44,9 +45,31 @@ const AUDIO_MIME: Record<string, string> = {
   ".webm": "audio/webm",
 };
 
+const AUDIO_MAGIC: Array<[number[], string]> = [
+  [[0x49, 0x44, 0x33], "audio/mpeg"],          // ID3
+  [[0xff, 0xfb], "audio/mpeg"],                 // MP3 frame sync
+  [[0xff, 0xf3], "audio/mpeg"],
+  [[0xff, 0xf2], "audio/mpeg"],
+  [[0x4f, 0x67, 0x67, 0x53], "audio/ogg"],     // OggS
+  [[0x66, 0x4c, 0x61, 0x43], "audio/flac"],    // fLaC
+  [[0x52, 0x49, 0x46, 0x46], "audio/wav"],      // RIFF
+];
+
+function detectMimeFromBytes(data: Uint8Array | Buffer): string {
+  for (const [magic, mime] of AUDIO_MAGIC) {
+    if (data.length >= magic.length && magic.every((b, i) => data[i] === b)) {
+      return mime;
+    }
+  }
+  return "application/octet-stream";
+}
+
 export function audioContentType(audio: AudioInput): string {
   if (isAudioPayload(audio)) {
-    return audio.contentType ?? "application/octet-stream";
+    if (audio.contentType) return audio.contentType;
+    return detectMimeFromBytes(
+      audio.data instanceof Uint8Array ? audio.data : new Uint8Array(audio.data),
+    );
   }
   if (typeof audio === "string") {
     const dot = audio.lastIndexOf(".");
@@ -54,6 +77,9 @@ export function audioContentType(audio: AudioInput): string {
       const ext = audio.slice(dot).toLowerCase();
       return AUDIO_MIME[ext] ?? "audio/wav";
     }
+  }
+  if (audio instanceof Uint8Array) {
+    return detectMimeFromBytes(audio);
   }
   return "audio/wav";
 }
