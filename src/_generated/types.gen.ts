@@ -371,69 +371,6 @@ export type PostTextToSpeechResponses = {
 
 export type PostTextToSpeechResponse = PostTextToSpeechResponses[keyof PostTextToSpeechResponses];
 
-export type PostTextToSpeechGenerateWithTimingData = {
-    body: {
-        /**
-         * Text to synthesize (1–2500 characters). REQUIRED.
-         */
-        text: string;
-        /**
-         * Boolean (optional, default false). Currently accepted but not applied to the request body — flag is reserved for future SSML support.
-         */
-        isSSML?: boolean;
-    };
-    path?: never;
-    query?: never;
-    url: '/api/text-to-speech/generate-with-timing';
-};
-
-export type PostTextToSpeechGenerateWithTimingErrors = {
-    /**
-     * Bad request — missing or invalid parameter
-     */
-    400: unknown;
-    /**
-     * Unauthorized — missing or invalid API key
-     */
-    401: unknown;
-    /**
-     * Rate limit exceeded
-     */
-    429: unknown;
-    /**
-     * Server error
-     */
-    500: unknown;
-};
-
-export type PostTextToSpeechGenerateWithTimingResponses = {
-    /**
-     * Successful response
-     */
-    200: {
-        /**
-         * Boolean — true on a successful synthesis
-         */
-        success?: boolean;
-        /**
-         * Base64-encoded MP3 audio (ElevenLabs default format)
-         */
-        audio_base64?: string;
-        /**
-         * Object with arrays of equal length: `{ characters: string[], character_start_times_seconds: number[], character_end_times_seconds: number[] }`. Each i-th entry gives the start/end time in seconds of the i-th character of the synthesized audio.
-         */
-        alignment?: {
-            [key: string]: unknown;
-        };
-        /**
-         * Same shape as `alignment`, but computed against the post-text-normalization sequence (numbers expanded, abbreviations expanded, etc.) — use this when your highlighter must follow what was actually pronounced, not the literal input text.
-         */
-        normalized_alignment?: string;
-    };
-};
-
-export type PostTextToSpeechGenerateWithTimingResponse = PostTextToSpeechGenerateWithTimingResponses[keyof PostTextToSpeechGenerateWithTimingResponses];
-
 export type GetCalculateAvqiData = {
     body?: never;
     path?: never;
