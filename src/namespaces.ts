@@ -259,8 +259,8 @@ export class TtsNamespace {
     locale = "en-US",
     voiceName?: string,
   ): Promise<PostTextToSpeechResponses[200]> {
-    const body: Record<string, string> = { text, locale };
-    if (voiceName) body["voiceName"] = voiceName;
+    const body: Record<string, string> = { text, language: locale };
+    if (voiceName) body["voice"] = voiceName;
     const resp = await fetchWithRetry(`${this.baseUrl}/api/text-to-speech`, {
       method: "POST",
       headers: { ...this.authHeaders, "Content-Type": "application/json" },
@@ -279,12 +279,12 @@ export class PhonemeNamespace {
 
   async detect(
     audio: AudioInput,
-    language = "fr",
+    language = "fr-FR",
     email?: string,
   ): Promise<PostAnalyzePhonemesLiveResponses[200]> {
     const effectiveEmail = email ?? this.email;
     const fileId = await uploadAssignFileId(this.baseUrl, this.authHeaders, audio, effectiveEmail);
-    const resp = await fetchWithRetry(`${this.baseUrl}/api/classify-phoneme`, {
+    const resp = await fetchWithRetry(`${this.baseUrl}/api/analyze-phonemes-live`, {
       method: "POST",
       headers: { ...this.authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({ fileId, language }),
