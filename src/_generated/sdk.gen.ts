@@ -132,6 +132,26 @@ export const postTextToSpeech = <ThrowOnError extends boolean = false>(options: 
 };
 
 /**
+ * Synthesize speech via ElevenLabs (model: eleven_multilingual_v2) and return per-character timing alongside the audio.…
+ */
+export const postTextToSpeechGenerateWithTiming = <ThrowOnError extends boolean = false>(options: Options<PostTextToSpeechGenerateWithTimingData, ThrowOnError>) => {
+    return (options.client ?? _heyApiClient).post<PostTextToSpeechGenerateWithTimingResponse, unknown, ThrowOnError>({
+        security: [
+            {
+                name: 'X-API-Key',
+                type: 'apiKey'
+            }
+        ],
+        url: '/api/text-to-speech/generate-with-timing',
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...options?.headers
+        }
+    });
+};
+
+/**
  * Calculate AVQI metrics from connected speech and sustained vowel audio recordings
  */
 export const getCalculateAvqi = <ThrowOnError extends boolean = false>(options: Options<GetCalculateAvqiData, ThrowOnError>) => {

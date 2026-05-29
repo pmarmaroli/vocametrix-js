@@ -12,7 +12,7 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-const LIVE_SPEC = "https://platform.vocametrix.com/openapi.json";
+const LIVE_SPEC = "https://www.vocametrix.com/openapi.json";
 const LOCAL_SPEC = resolve(ROOT, "openapi.json");
 const OUTPUT_DIR = resolve(ROOT, "src", "_generated");
 

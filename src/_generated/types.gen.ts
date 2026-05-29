@@ -371,6 +371,69 @@ export type PostTextToSpeechResponses = {
 
 export type PostTextToSpeechResponse = PostTextToSpeechResponses[keyof PostTextToSpeechResponses];
 
+export type PostTextToSpeechGenerateWithTimingData = {
+    body: {
+        /**
+         * Text to synthesize (1–2500 characters). REQUIRED.
+         */
+        text: string;
+        /**
+         * Boolean (optional, default false). Currently accepted but not applied to the request body — flag is reserved for future SSML support.
+         */
+        isSSML?: boolean;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/text-to-speech/generate-with-timing';
+};
+
+export type PostTextToSpeechGenerateWithTimingErrors = {
+    /**
+     * Bad request — missing or invalid parameter
+     */
+    400: unknown;
+    /**
+     * Unauthorized — missing or invalid API key
+     */
+    401: unknown;
+    /**
+     * Rate limit exceeded
+     */
+    429: unknown;
+    /**
+     * Server error
+     */
+    500: unknown;
+};
+
+export type PostTextToSpeechGenerateWithTimingResponses = {
+    /**
+     * Successful response
+     */
+    200: {
+        /**
+         * Boolean — true on a successful synthesis
+         */
+        success?: boolean;
+        /**
+         * Base64-encoded MP3 audio (ElevenLabs default format)
+         */
+        audio_base64?: string;
+        /**
+         * Object with arrays of equal length: `{ characters: string[], character_start_times_seconds: number[], character_end_times_seconds: number[] }`. Each i-th entry gives the start/end time in seconds of the i-th character of the synthesized audio.
+         */
+        alignment?: {
+            [key: string]: unknown;
+        };
+        /**
+         * Same shape as `alignment`, but computed against the post-text-normalization sequence (numbers expanded, abbreviations expanded, etc.) — use this when your highlighter must follow what was actually pronounced, not the literal input text.
+         */
+        normalized_alignment?: string;
+    };
+};
+
+export type PostTextToSpeechGenerateWithTimingResponse = PostTextToSpeechGenerateWithTimingResponses[keyof PostTextToSpeechGenerateWithTimingResponses];
+
 export type GetCalculateAvqiData = {
     body?: never;
     path?: never;
@@ -2586,9 +2649,17 @@ export type PostClassifyStutteringData = {
          */
         chunkSize?: number;
         /**
-         * Optional, default "en-US". Locale used by the Azure STT step within the classification pipeline.
+         * Optional, default "en-US". Locale used by the speech-to-text step within the classification pipeline.
          */
         locale?: string;
+        /**
+         * optional (default true). When true, the recording is transcribed once (real-time STT) and each result block includes its transcription plus a `words` array of per-word timestamps. Set false to skip transcription for minimum latency.
+         */
+        transcribe?: boolean;
+        /**
+         * optional (default false). When true, per-block phonetic transcription is computed (slower). When false, each block's `phonemes` is "N/A".
+         */
+        includePhonemes?: boolean;
     };
     path?: never;
     query?: never;
@@ -2924,9 +2995,9 @@ export type GetTherapyResultBySessionIdResponses = {
          */
         '<therapy session>'?: string;
         /**
-         * { success, session_id, patient_id, classification, classificationMetadata, overallClassification, timestamp } — see /api/classify-stuttering documentation.
+         * { success, session_id, patient_id, classification, classificationMetadata, overallClassification, timestamp }. `classification` is an array of ~4s blocks; each: { blockId, startTime, stopTime (s), primaryType (fluent/block/Soundrepetition/Wordrepetition/prolongation/interjection), secondaryTypes, confidence, characteristics, transcription, words, phonemes }. `words` holds per-word timestamps { word, start, end } in seconds (present when transcribe=true; blocks overlap, so a word may repeat across adjacent blocks). `phonemes` is "N/A" unless includePhonemes=true.
          */
-        '<classification session>'?: string;
+        '<classification session>'?: number;
     };
 };
 
